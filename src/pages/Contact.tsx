@@ -1,4 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState, FormEvent } from 'react';
+import emailjs from '@emailjs/browser';
+
+const SERVICE_ID = 'service_tto23vi';
+const TEMPLATE_ID = 'template_ftsxu9c';
+const PUBLIC_KEY = 'FOs-CFuHknoBigGUWY';
 
 const socialLinks = [
   {
@@ -6,12 +11,6 @@ const socialLinks = [
     url: 'https://www.linkedin.com/in/akshat-behera',
     iconClass: 'fa-brands fa-linkedin-in',
     color: '#0A66C2',
-  },
-  {
-    name: 'Instagram',
-    url: 'https://www.instagram.com/akshatbehera/',
-    iconClass: 'fa-brands fa-instagram',
-    color: '#E4405F',
   },
   {
     name: 'X',
@@ -37,10 +36,34 @@ const spaceQuotes = [
 ];
 
 const Contact = () => {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
   const randomQuote = useMemo(
     () => spaceQuotes[Math.floor(Math.random() * spaceQuotes.length)],
     []
   );
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!formRef.current || sending) return;
+
+    setSending(true);
+    setStatus('idle');
+
+    emailjs.sendForm(SERVICE_ID, TEMPLATE_ID, formRef.current, PUBLIC_KEY)
+      .then(() => {
+        setStatus('success');
+        formRef.current?.reset();
+      })
+      .catch(() => {
+        setStatus('error');
+      })
+      .finally(() => {
+        setSending(false);
+      });
+  };
 
   return (
     <div className="container">
@@ -67,6 +90,76 @@ const Contact = () => {
             </a>
           ))}
         </div>
+      </section>
+
+      {/* Contact Form */}
+      <section className="card">
+        <div className="card-header">
+          <i className="fas fa-envelope"></i> Send Me a Message
+        </div>
+        <form ref={formRef} onSubmit={handleSubmit} className="contact-form">
+          <div className="form-row">
+            <div className="form-group">
+              <label htmlFor="from_name">Your Name</label>
+              <input
+                type="text"
+                id="from_name"
+                name="from_name"
+                required
+                placeholder="John Doe"
+                autoComplete="name"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="reply_to">Your Email</label>
+              <input
+                type="email"
+                id="reply_to"
+                name="reply_to"
+                required
+                placeholder="john@example.com"
+                autoComplete="email"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="subject">Subject</label>
+            <input
+              type="text"
+              id="subject"
+              name="subject"
+              required
+              placeholder="What's this about?"
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="message">Message</label>
+            <textarea
+              id="message"
+              name="message"
+              required
+              rows={5}
+              placeholder="Write your message here..."
+            />
+          </div>
+          <button type="submit" className="contact-submit" disabled={sending}>
+            {sending ? (
+              <><i className="fas fa-spinner fa-spin"></i> Sending...</>
+            ) : (
+              <><i className="fas fa-paper-plane"></i> Send Message</>
+            )}
+          </button>
+          {status === 'success' && (
+            <p className="form-status success">
+              <i className="fas fa-check-circle"></i> Message sent successfully!
+            </p>
+          )}
+          {status === 'error' && (
+            <p className="form-status error">
+              <i className="fas fa-times-circle"></i> Failed to send. Please try again.
+            </p>
+          )}
+        </form>
       </section>
 
       {/* Project Info */}
