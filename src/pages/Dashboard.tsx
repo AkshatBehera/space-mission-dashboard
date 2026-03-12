@@ -72,6 +72,9 @@ const Dashboard = () => {
   const [twitterFailed, setTwitterFailed] = useState(false);
   const [sunriseTime, setSunriseTime] = useState<number | null>(null);
   const [sunsetTime, setSunsetTime] = useState<number | null>(null);
+  const [localTime, setLocalTime] = useState<string>('');
+  const [localDate, setLocalDate] = useState<string>('');
+  const [localHourDecimal, setLocalHourDecimal] = useState<number>(0);
   const earthSunCanvasRef = useRef<HTMLCanvasElement>(null);
   const solarSystemCanvasRef = useRef<HTMLCanvasElement>(null);
   const earthSunStarsRef = useRef<Star[]>([]);
@@ -176,16 +179,16 @@ const Dashboard = () => {
 
   // ---------- Sunrise / Sunset ----------
   const topCities = [
-    { name: 'New York', lat: 40.7128, lng: -74.006, tz: -4 },
-    { name: 'London', lat: 51.5074, lng: -0.1278, tz: 0 },
-    { name: 'Tokyo', lat: 35.6762, lng: 139.6503, tz: 9 },
-    { name: 'Paris', lat: 48.8566, lng: 2.3522, tz: 1 },
-    { name: 'Sydney', lat: -33.8688, lng: 151.2093, tz: 10 },
-    { name: 'Beijing', lat: 39.9042, lng: 116.4074, tz: 8 },
-    { name: 'Dubai', lat: 25.276987, lng: 55.296249, tz: 4 },
-    { name: 'Mumbai', lat: 19.076, lng: 72.8777, tz: 5.5 },
-    { name: 'São Paulo', lat: -23.5505, lng: -46.6333, tz: -3 },
-    { name: 'Moscow', lat: 55.7558, lng: 37.6173, tz: 3 },
+    { name: 'New York', lat: 40.7128, lng: -74.006, tz: -4, tzAbbr: 'EDT' },
+    { name: 'London', lat: 51.5074, lng: -0.1278, tz: 0, tzAbbr: 'GMT' },
+    { name: 'Tokyo', lat: 35.6762, lng: 139.6503, tz: 9, tzAbbr: 'JST' },
+    { name: 'Paris', lat: 48.8566, lng: 2.3522, tz: 1, tzAbbr: 'CET' },
+    { name: 'Sydney', lat: -33.8688, lng: 151.2093, tz: 10, tzAbbr: 'AEST' },
+    { name: 'Beijing', lat: 39.9042, lng: 116.4074, tz: 8, tzAbbr: 'CST' },
+    { name: 'Dubai', lat: 25.276987, lng: 55.296249, tz: 4, tzAbbr: 'GST' },
+    { name: 'Mumbai', lat: 19.076, lng: 72.8777, tz: 5.5, tzAbbr: 'IST' },
+    { name: 'São Paulo', lat: -23.5505, lng: -46.6333, tz: -3, tzAbbr: 'BRT' },
+    { name: 'Moscow', lat: 55.7558, lng: 37.6173, tz: 3, tzAbbr: 'MSK' },
   ];
   const [selectedCity, setSelectedCity] = useState(topCities[0]);
 
@@ -220,6 +223,52 @@ const Dashboard = () => {
     setSunriseTime(rise);
     setSunsetTime(set);
   }, [selectedCity, suntimes]);
+
+  // ---------- Real-time clock for selected city ----------
+  useEffect(() => {
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    const updateLocalTime = () => {
+      // Get current UTC time in milliseconds
+      const now = new Date();
+      const utcMillis = now.getTime() + (now.getTimezoneOffset() * 60000); // Convert to true UTC
+      
+      // Apply timezone offset (convert hours to milliseconds)
+      const localMillis = utcMillis + (selectedCity.tz * 3600000);
+      const localDate = new Date(localMillis);
+      
+      // Format time as 12-hour with AM/PM
+      const hours = localDate.getUTCHours();
+      const minutes = localDate.getUTCMinutes();
+      const seconds = localDate.getUTCSeconds();
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} ${period} ${selectedCity.tzAbbr}`;
+      
+      // Calculate decimal hour (for sun position animation)
+      const decimalHour = hours + minutes / 60 + seconds / 3600;
+      
+      // Format date as "DD MonthName YYYY"
+      const day = localDate.getUTCDate();
+      const month = monthNames[localDate.getUTCMonth()];
+      const year = localDate.getUTCFullYear();
+      const formattedDate = `${day.toString().padStart(2, '0')} ${month} ${year}`;
+      
+      setLocalTime(formattedTime);
+      setLocalDate(formattedDate);
+      setLocalHourDecimal(decimalHour);
+    };
+    
+    // Update immediately
+    updateLocalTime();
+    
+    // Then update every second
+    const intervalId = setInterval(updateLocalTime, 1000);
+    
+    // Cleanup: stop the timer when component unmounts or selectedCity changes
+    return () => clearInterval(intervalId);
+  }, [selectedCity]);
 
   // ---------- Earth-Sun Simulation ----------
   useEffect(() => {
@@ -459,13 +508,39 @@ const Dashboard = () => {
   }, []);
 
   // ---------- Sunrise progress (visual arc) ----------
-  const sunProgress = (() => {
-    if (sunriseTime === null || sunsetTime === null || sunriseTime < 0 || sunsetTime < 0) return null;
-    const now = new Date();
-    const currentHour = now.getHours() + now.getMinutes() / 60;
+  const sunInfo = (() => {
+    if (sunriseTime === null || sunsetTime === null || sunriseTime < 0 || sunsetTime < 0) {
+      return { isDaytime: false, progress: 0 };
+    }
+    
+    // Use the selected city's local time (not your computer's time)
+    const currentHour = localHourDecimal;
     const dayLen = sunsetTime - sunriseTime;
-    if (dayLen <= 0) return null;
-    return Math.max(0, Math.min(1, (currentHour - sunriseTime) / dayLen));
+    if (dayLen <= 0) return { isDaytime: false, progress: 0 };
+    
+    // Check if it's daytime (between sunrise and sunset)
+    if (currentHour >= sunriseTime && currentHour <= sunsetTime) {
+      // Daytime: calculate sun position along arc
+      const progress = Math.max(0, Math.min(1, (currentHour - sunriseTime) / dayLen));
+      return { isDaytime: true, progress };
+    } else {
+      // Nighttime: calculate moon position along inverted arc
+      const nightLen = 24 - dayLen;
+      let progress = 0;
+      
+      if (currentHour < sunriseTime) {
+        // Pre-dawn: hours from midnight to sunrise
+        const hoursSinceMidnight = currentHour + 24; // adjust if needed
+        const hoursUntilSunrise = sunriseTime - currentHour;
+        progress = 1 - (hoursUntilSunrise / nightLen);
+      } else {
+        // After sunset: hours from sunset
+        const hoursAfterSunset = currentHour - sunsetTime;
+        progress = hoursAfterSunset / nightLen;
+      }
+      
+      return { isDaytime: false, progress: Math.max(0, Math.min(1, progress)) };
+    }
   })();
 
   return (
@@ -507,36 +582,73 @@ const Dashboard = () => {
 
         {/* Sun arc visual */}
         <div className="sun-arc-container">
-          <svg viewBox="0 0 300 160" className="sun-arc-svg">
+          <svg viewBox="0 0 300 280" className="sun-arc-svg">
             <defs>
-              <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="0">
+              <linearGradient id="sunGrad" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="#F97316" />
                 <stop offset="50%" stopColor="#FBBF24" />
                 <stop offset="100%" stopColor="#F97316" />
               </linearGradient>
+              <linearGradient id="moonGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#E0E7FF" />
+                <stop offset="100%" stopColor="#A5B4FC" />
+              </linearGradient>
             </defs>
             {/* horizon */}
             <line x1="20" y1="140" x2="280" y2="140" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-            {/* arc path */}
-            <path d="M 30 140 Q 150 -10 270 140" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeDasharray="4 4" />
-            {/* sun position */}
-            {sunProgress !== null && (
-              <>
-                <circle
-                  cx={30 + 240 * sunProgress}
-                  cy={140 - Math.sin(sunProgress * Math.PI) * 140}
-                  r="12"
-                  fill="url(#arcGrad)"
-                  filter="drop-shadow(0 0 8px #FDB813)"
-                />
-                <circle
-                  cx={30 + 240 * sunProgress}
-                  cy={140 - Math.sin(sunProgress * Math.PI) * 140}
-                  r="6"
-                  fill="#FFFBE6"
-                />
-              </>
-            )}
+            {/* Sun arc path - top half (daytime) */}
+            <path d="M 30 140 Q 150 20 270 140" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeDasharray="4 4" />
+            {/* Moon arc path - bottom half (nighttime) */}
+            <path d="M 30 140 Q 150 260 270 140" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="1.5" strokeDasharray="4 4" />
+            
+            {/* Daytime: Show sun following the arc */}
+            {sunInfo.isDaytime && (() => {
+              const t = sunInfo.progress;
+              const cx = 30 + 240 * t;
+              const cy = 140 - 240 * t * (1 - t);
+              return (
+                <>
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r="12"
+                    fill="url(#sunGrad)"
+                    filter="drop-shadow(0 0 8px #FDB813)"
+                  />
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r="6"
+                    fill="#FFFBE6"
+                  />
+                </>
+              );
+            })()}
+            
+            {/* Nighttime: Show moon following the lower arc */}
+            {!sunInfo.isDaytime && (() => {
+              const t = sunInfo.progress;
+              const cx = 30 + 240 * t;
+              // Mirror of sun arc, but below horizon
+              const cy = 140 + 240 * t * (1 - t);
+              return (
+                <>
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r="10"
+                    fill="url(#moonGrad)"
+                    filter="drop-shadow(0 0 6px #A5B4FC)"
+                  />
+                  <circle
+                    cx={cx + 2}
+                    cy={cy - 2}
+                    r="8"
+                    fill="rgba(3, 0, 20, 0.4)"
+                  />
+                </>
+              );
+            })()}
           </svg>
         </div>
 
@@ -564,6 +676,14 @@ const Dashboard = () => {
                   ? `${Math.floor(sunsetTime - sunriseTime)}h ${Math.round(((sunsetTime - sunriseTime) % 1) * 60)}m`
                   : 'N/A'}
               </span>
+            </div>
+          </div>
+          <div className="sun-time-item local-time">
+            <i className="fas fa-globe"></i>
+            <div>
+              <span className="sun-label">Local Time</span>
+              <span className="sun-value">{localTime || '--:--:-- --'}</span>
+              <span className="sun-date">{localDate || 'DD Month YYYY'}</span>
             </div>
           </div>
         </div>
