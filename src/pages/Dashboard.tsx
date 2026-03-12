@@ -230,9 +230,9 @@ const Dashboard = () => {
                         'July', 'August', 'September', 'October', 'November', 'December'];
     
     const updateLocalTime = () => {
-      // Get current UTC time in milliseconds
+      // Get current UTC time in milliseconds (getTime() already returns UTC)
       const now = new Date();
-      const utcMillis = now.getTime() + (now.getTimezoneOffset() * 60000); // Convert to true UTC
+      const utcMillis = now.getTime();
       
       // Apply timezone offset (convert hours to milliseconds)
       const localMillis = utcMillis + (selectedCity.tz * 3600000);
