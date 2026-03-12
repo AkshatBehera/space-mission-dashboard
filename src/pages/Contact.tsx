@@ -1,9 +1,9 @@
-import { useMemo, useRef, useState, FormEvent } from 'react';
+import { useMemo, useRef, useState, useEffect, FormEvent } from 'react';
 import emailjs from '@emailjs/browser';
 
 const SERVICE_ID = 'service_tto23vi';
 const TEMPLATE_ID = 'template_ftsxu9c';
-const PUBLIC_KEY = 'FOs-CFuHknoBigGUWY';
+const PUBLIC_KEY = 'FOs-CFuHknoBigGUW';
 
 const socialLinks = [
   {
@@ -45,24 +45,59 @@ const Contact = () => {
     []
   );
 
-  const handleSubmit = (e: FormEvent) => {
+  // Initialize EmailJS
+  useEffect(() => {
+    emailjs.init(PUBLIC_KEY);
+    console.log('EmailJS initialized with public key');
+  }, []);
+
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!formRef.current || sending) return;
+
+    const formData = new FormData(formRef.current);
+    const emailInput = formData.get('email') as string;
+    
+    // Validate email
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(emailInput)) {
+      const emailField = formRef.current.querySelector<HTMLInputElement>('input[name="email"]');
+      if (emailField) {
+        emailField.setCustomValidity('Enter a valid email address');
+        emailField.reportValidity();
+      }
+      return;
+    }
 
     setSending(true);
     setStatus('idle');
 
-    emailjs.sendForm(SERVICE_ID, TEMPLATE_ID, formRef.current, PUBLIC_KEY)
-      .then(() => {
-        setStatus('success');
-        formRef.current?.reset();
-      })
-      .catch(() => {
-        setStatus('error');
-      })
-      .finally(() => {
-        setSending(false);
-      });
+    // Use explicit template params for better control
+    const templateParams = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      subject: formData.get('subject') as string,
+      message: formData.get('message') as string,
+    };
+
+    console.log('Attempting to send email...');
+    console.log('Service ID:', SERVICE_ID);
+    console.log('Template ID:', TEMPLATE_ID);
+    console.log('Template params:', templateParams);
+
+    try {
+      const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams);
+      console.log('✅ EmailJS success:', response);
+      setStatus('success');
+      formRef.current?.reset();
+    } catch (err: any) {
+      console.error('❌ EmailJS error:', err);
+      console.error('Error status:', err?.status);
+      console.error('Error text:', err?.text);
+      console.error('Full error object:', JSON.stringify(err, null, 2));
+      setStatus('error');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -97,27 +132,27 @@ const Contact = () => {
         <div className="card-header">
           <i className="fas fa-envelope"></i> Send Me a Message
         </div>
-        <form ref={formRef} onSubmit={handleSubmit} className="contact-form">
+        <form ref={formRef} onSubmit={handleSubmit} className="contact-form" noValidate>
           <div className="form-row">
             <div className="form-group">
-              <label htmlFor="from_name">Your Name</label>
+              <label htmlFor="name">Your Name</label>
               <input
                 type="text"
-                id="from_name"
-                name="from_name"
+                id="name"
+                name="name"
                 required
-                placeholder="John Doe"
                 autoComplete="name"
               />
             </div>
             <div className="form-group">
-              <label htmlFor="reply_to">Your Email</label>
+              <label htmlFor="email">Your Email</label>
               <input
                 type="email"
-                id="reply_to"
-                name="reply_to"
+                id="email"
+                name="email"
                 required
-                placeholder="john@example.com"
+                pattern="[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
+                title="Enter a valid email address (e.g. name@example.com)"
                 autoComplete="email"
               />
             </div>
@@ -129,7 +164,6 @@ const Contact = () => {
               id="subject"
               name="subject"
               required
-              placeholder="What's this about?"
             />
           </div>
           <div className="form-group">
@@ -139,7 +173,6 @@ const Contact = () => {
               name="message"
               required
               rows={5}
-              placeholder="Write your message here..."
             />
           </div>
           <button type="submit" className="contact-submit" disabled={sending}>
