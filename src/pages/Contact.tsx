@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, useEffect, FormEvent } from 'react';
 import emailjs from '@emailjs/browser';
+import { trackEvent } from '../utils/analytics';
 
 const SERVICE_ID = 'service_tto23vi';
 const TEMPLATE_ID = 'template_ftsxu9c';
@@ -55,11 +56,14 @@ const Contact = () => {
     e.preventDefault();
     if (!formRef.current || sending) return;
 
+    trackEvent('contact_submit_attempt');
+
     const formData = new FormData(formRef.current);
     const emailInput = formData.get('email') as string;
     
     // Validate email
     if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(emailInput)) {
+      trackEvent('contact_validation_error', { field: 'email' });
       const emailField = formRef.current.querySelector<HTMLInputElement>('input[name="email"]');
       if (emailField) {
         emailField.setCustomValidity('Enter a valid email address');
@@ -88,6 +92,7 @@ const Contact = () => {
       const response = await emailjs.send(SERVICE_ID, TEMPLATE_ID, templateParams);
       console.log('✅ EmailJS success:', response);
       setStatus('success');
+      trackEvent('contact_submit_success');
       formRef.current?.reset();
     } catch (err: any) {
       console.error('❌ EmailJS error:', err);
@@ -95,6 +100,7 @@ const Contact = () => {
       console.error('Error text:', err?.text);
       console.error('Full error object:', JSON.stringify(err, null, 2));
       setStatus('error');
+      trackEvent('contact_submit_failed', { error_status: String(err?.status ?? 'unknown') });
     } finally {
       setSending(false);
     }
@@ -117,6 +123,7 @@ const Contact = () => {
               target="_blank"
               rel="noopener noreferrer"
               className="social-card"
+              onClick={() => trackEvent('contact_social_click', { platform: link.name, destination: link.url })}
             >
               <div className="social-icon-circle" style={{ background: link.color }}>
                 <i className={link.iconClass}></i>

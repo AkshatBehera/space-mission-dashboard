@@ -330,7 +330,7 @@ body {
 }
 .sun-times-display {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 1rem;
 }
 .sun-time-item {
@@ -350,6 +350,7 @@ body {
 .sun-time-item.sunrise i { color: #FBBF24; }
 .sun-time-item.sunset i { color: #F97316; }
 .sun-time-item.daylight i { color: #60A5FA; }
+.sun-time-item.local-time i { color: #34D399; }
 .sun-label {
   display: block;
   font-size: 0.7rem;
@@ -363,6 +364,13 @@ body {
   font-size: 1.1rem;
   font-weight: 500;
   color: var(--text-primary);
+}
+.sun-date {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  font-weight: 400;
 }
 
 /* ─── Canvas Simulations ─── */
@@ -915,6 +923,7 @@ body {
   .twitter-feeds-grid { grid-template-columns: 1fr 1fr; }
   .social-grid { grid-template-columns: repeat(3, 1fr); }
   .form-row { grid-template-columns: 1fr; }
+  .sun-times-display { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* Mobile */
@@ -951,7 +960,7 @@ body {
 
   .map-container { height: 300px; }
 
-  .sun-times-display { grid-template-columns: 1fr; gap: 0.75rem; }
+  .sun-times-display { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
 
   .canvas-container { min-height: 220px; }
   .solar-system-container { min-height: 260px; }

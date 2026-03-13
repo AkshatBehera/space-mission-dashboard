@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -32,4 +35,5 @@ README.md
 SETUP_GUIDE.md
 SOCIAL_ICONS_GUIDE.md
 TROUBLESHOOTING.md
+LEARN_COSMICX.md
 fix-and-run.bat

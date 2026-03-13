@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, ChangeEvent } from 'react';
 import MapComponent from '../components/MapComponent';
 import StatsTable from '../components/StatsTable';
 import VideoPlayer from '../components/VideoPlayer';
+import { trackEvent } from '../utils/analytics';
 
 declare global {
   interface Window {
@@ -191,6 +192,13 @@ const Dashboard = () => {
     { name: 'Moscow', lat: 55.7558, lng: 37.6173, tz: 3, tzAbbr: 'MSK' },
   ];
   const [selectedCity, setSelectedCity] = useState(topCities[0]);
+
+  const handleCityChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const cityName = event.target.value;
+    const city = topCities.find(c => c.name === cityName) || topCities[0];
+    setSelectedCity(city);
+    trackEvent('sunrise_city_changed', { city: city.name, timezone: city.tzAbbr });
+  };
 
   const suntimes = useCallback((lat: number, lng: number, tz: number) => {
     const d = new Date();
@@ -573,7 +581,7 @@ const Dashboard = () => {
         <div className="sun-times-controls">
           <select
             value={selectedCity.name}
-            onChange={e => setSelectedCity(topCities.find(c => c.name === e.target.value) || topCities[0])}
+            onChange={handleCityChange}
             className="select-city"
           >
             {topCities.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
@@ -742,6 +750,7 @@ const Dashboard = () => {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="twitter-follow-btn"
+                    onClick={() => trackEvent('dashboard_x_outbound_click', { account: account.handle })}
                   >
                     <i className="fa-brands fa-x-twitter"></i> View on X
                   </a>
