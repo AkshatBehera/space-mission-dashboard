@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { trackEvent } from '../utils/analytics';
 
 const AudioControls = () => {
   const [isPlaying, setIsPlaying] = useState(false);
@@ -18,9 +19,11 @@ const AudioControls = () => {
         setIsPlaying(true);
         setShowPrompt(false);
         setHasInteracted(true);
+        trackEvent('audio_autoplay_success');
       })
       .catch(() => {
         setShowPrompt(true);
+        trackEvent('audio_autoplay_blocked');
       });
   }, []);
 
@@ -34,6 +37,7 @@ const AudioControls = () => {
         audio.play().then(() => {
           setIsPlaying(true);
           setShowPrompt(false);
+          trackEvent('audio_first_interaction_play');
         }).catch(() => {});
       }
       setHasInteracted(true);
@@ -52,11 +56,13 @@ const AudioControls = () => {
     if (isPlaying) {
       audio.pause();
       setIsPlaying(false);
+      trackEvent('audio_paused');
     } else {
       audio.volume = volume;
       audio.play().then(() => {
         setIsPlaying(true);
         setShowPrompt(false);
+        trackEvent('audio_played');
       }).catch(() => {});
     }
   }, [isPlaying, volume]);
@@ -68,10 +74,12 @@ const AudioControls = () => {
       setPrevVolume(volume);
       setVolume(0);
       audio.volume = 0;
+      trackEvent('audio_muted', { previous_volume: Number(volume.toFixed(2)) });
     } else {
       const restored = prevVolume > 0 ? prevVolume : 0.5;
       setVolume(restored);
       audio.volume = restored;
+      trackEvent('audio_unmuted', { restored_volume: Number(restored.toFixed(2)) });
     }
   }, [volume, prevVolume]);
 
@@ -81,6 +89,10 @@ const AudioControls = () => {
     if (v > 0) setPrevVolume(v);
     if (audioRef.current) audioRef.current.volume = v;
   }, []);
+
+  const handleVolumeCommit = useCallback(() => {
+    trackEvent('audio_volume_set', { volume_percent: Math.round(volume * 100) });
+  }, [volume]);
 
   return (
     <>
@@ -126,6 +138,9 @@ const AudioControls = () => {
             step="0.01"
             value={volume}
             onChange={handleVolume}
+            onMouseUp={handleVolumeCommit}
+            onTouchEnd={handleVolumeCommit}
+            onKeyUp={handleVolumeCommit}
             className="volume-slider"
             aria-label="Volume"
           />
